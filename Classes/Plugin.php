@@ -1,6 +1,6 @@
 <?php
 
-namespace Phile\Plugin\Siezi\TotalCache;
+namespace Phile\Plugin\Siezi\PhileTotalCache;
 
 use Phile\Core\Event;
 use Phile\Core\Response;
