@@ -10,9 +10,11 @@ use Phile\Plugin\AbstractPlugin;
 
 class Plugin extends AbstractPlugin implements EventObserverInterface {
 
+	protected $cache;
+
 	protected $pageHash;
 
-	protected $cache;
+	protected $page = ['body' => null, 'status' => 200];
 
 	protected $defaults = [
 		'excludeUrls' => []
@@ -20,19 +22,13 @@ class Plugin extends AbstractPlugin implements EventObserverInterface {
 
 	public function __construct() {
 		Event::registerEvent('request_uri', $this);
+		Event::registerEvent('before_parse_content', $this);
 		Event::registerEvent('after_render_template', $this);
 	}
 
 	public function on($eventKey, $data = null) {
 		$method = lcfirst(str_replace(' ', '' , ucwords(str_replace('_', ' ', $eventKey))));
 		$this->{$method}($data);
-	}
-
-	public function afterRenderTemplate($data) {
-		if (!$this->cache) {
-			return;
-		}
-		$this->cache->set($this->pageHash, $data['output']);
 	}
 
 	public function requestUri($data) {
@@ -60,10 +56,30 @@ class Plugin extends AbstractPlugin implements EventObserverInterface {
 		if (!$this->cache->has($this->pageHash)) {
 			return;
 		}
+		$page = $this->cache->get($this->pageHash);
+
 		(new Response())
-			->setBody($this->cache->get($this->pageHash))
+			->setStatusCode($page['status'])
+			->setBody($page['body'])
 			->send();
 		die();
+	}
+
+	public function beforeParseContent($data) {
+		if (!$this->cache) {
+			return;
+		}
+		if ($data['page']->getUrl() === '404') {
+			$this->page['status'] = 404;
+		}
+	}
+
+	public function afterRenderTemplate($data) {
+		if (!$this->cache) {
+			return;
+		}
+		$this->page['body'] = $data['output'];
+		$this->cache->set($this->pageHash, $this->page);
 	}
 
 }
