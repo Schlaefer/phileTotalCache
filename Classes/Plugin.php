@@ -12,9 +12,11 @@ class Plugin extends AbstractPlugin implements EventObserverInterface {
 
 	protected $cache;
 
-	protected $pageHash;
+	protected $enabled = true;
 
-	protected $page = ['body' => null, 'status' => 200];
+	protected $pageOptions = [];
+
+	protected $url;
 
 	protected $defaults = [
 		'excludeUrls' => []
@@ -24,62 +26,96 @@ class Plugin extends AbstractPlugin implements EventObserverInterface {
 		Event::registerEvent('request_uri', $this);
 		Event::registerEvent('before_parse_content', $this);
 		Event::registerEvent('after_render_template', $this);
+		Event::registerEvent('siezi.phileTotalCache.set', $this);
 	}
 
 	public function on($eventKey, $data = null) {
+		if ($eventKey === 'siezi.phileTotalCache.set') {
+			$this->onSet($data);
+			return;
+		}
 		$method = lcfirst(str_replace(' ', '' , ucwords(str_replace('_', ' ', $eventKey))));
 		$this->{$method}($data);
 	}
 
-	public function requestUri($data) {
+	protected function onSet($data) {
+		$url = $data['url'];
+		$body = $data['body'];
+		unset($data['url'], $data['body']);
+		$this->setPage($url, $body, $data);
+	}
+
+	protected function requestUri($data) {
 		if (!ServiceLocator::hasService('Phile_Cache')) {
+			$this->enabled = false;
 			return;
 		}
 
-		$current = $data['uri'];
+		$this->url = $current = $data['uri'];
 		$this->settings += $this->defaults;
+
 
 		foreach ($this->settings['excludeUrls'] as $url) {
 			if ($url === $current) {
-				return;
+				$this->enabled = false;
 			}
 			if (substr($url, -1) === '*') {
 				$url = rtrim(rtrim($url, '*'), '/');
 				if (strpos($current, $url) === 0) {
-					return;
+					$this->enabled = false;
 				}
 			}
 		}
 
-		$this->cache = ServiceLocator::getService('Phile_Cache');
-		$this->pageHash = md5('Siezi\TotalCache' . $data['uri']);
-		if (!$this->cache->has($this->pageHash)) {
+		if (!$this->enabled) {
 			return;
 		}
-		$page = $this->cache->get($this->pageHash);
 
-		(new Response())
-			->setStatusCode($page['status'])
-			->setBody($page['body'])
-			->send();
+		$this->cache = ServiceLocator::getService('Phile_Cache');
+
+		$pageHash = $this->getPageHash($data['uri']);
+		if (!$this->cache->has($pageHash)) {
+			return;
+		}
+		$page = $this->cache->get($pageHash);
+
+		$response = new Response();
+		if (isset($page['status'])) {
+			$response->setStatusCode($page['status']);
+		}
+		if (isset($page['headers'])) {
+			foreach ($page['headers'] as $key => $value) {
+				$response->setHeader($key, $value);
+			}
+		}
+		$response->setBody($page['body'])->send();
 		die();
 	}
 
-	public function beforeParseContent($data) {
-		if (!$this->cache) {
+	protected function beforeParseContent($data) {
+		if (!$this->enabled) {
 			return;
 		}
 		if ($data['page']->getUrl() === '404') {
-			$this->page['status'] = 404;
+			$this->pageOptions['status'] = 404;
 		}
 	}
 
-	public function afterRenderTemplate($data) {
-		if (!$this->cache) {
+	protected function afterRenderTemplate($data) {
+		$this->setPage($this->url, $data['output'], $this->pageOptions);
+	}
+
+	protected function getPageHash($url) {
+		return 'siezi.totalCache.' . md5($url);
+	}
+
+	protected function setPage($url, $body, array $options = []) {
+		if (!$this->enabled) {
 			return;
 		}
-		$this->page['body'] = $data['output'];
-		$this->cache->set($this->pageHash, $this->page);
+		$hash = $this->getPageHash($url);
+		$page = ['body' => $body] + $options;
+		$this->cache->set($hash, $page);
 	}
 
 }

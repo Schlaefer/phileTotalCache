@@ -3,7 +3,7 @@
   "type": "phile-plugin",
   "license": "MIT",
   "description": "Cache Plugin for PhileCMS",
-  "homepage": "https://github.com/Schlaefer/phileMarkdownEditor",
+  "homepage": "https://github.com/Schlaefer/phileTotalCache",
   "keywords": ["phile", "cache"],
   "require": {
     "phile-cms/phile": ">=1.4",
