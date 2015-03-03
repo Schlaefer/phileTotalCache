@@ -1,0 +1,12 @@
+{
+  "name": "siezi/phile-total-cache",
+  "type": "phile-plugin",
+  "license": "MIT",
+  "description": "Cache Plugin for PhileCMS",
+  "homepage": "https://github.com/Schlaefer/phileMarkdownEditor",
+  "keywords": ["phile", "cache"],
+  "require": {
+    "phile-cms/phile": ">=1.4",
+    "phile-cms/plugin-installer-plugin": ">=1"
+  }
+}
