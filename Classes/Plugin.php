@@ -4,81 +4,89 @@ namespace Phile\Plugin\Siezi\PhileTotalCache;
 
 use Phile\Core\Event;
 use Phile\Core\Response;
-use Phile\Core\ServiceLocator;
 use Phile\Gateway\EventObserverInterface;
 use Phile\Plugin\AbstractPlugin;
 
 class Plugin extends AbstractPlugin implements EventObserverInterface {
 
-	protected $cache;
+	/**
+	 * @var PageCache
+	 */
+	protected $pageCache;
 
-	protected $enabled = true;
+	protected $enabled = false;
 
-	protected $pageOptions = [];
+	protected $defaults = ['excludeUrls' => []];
 
-	protected $url;
-
-	protected $defaults = [
-		'excludeUrls' => []
+	protected $registeredEvents = [
+		'config_loaded' => 'onConfigLoaded',
+		'request_uri' => 'onRequestUri',
+		'before_parse_content' => 'onBeforeParseContent',
+		'after_render_template' => 'onAfterRenderTemplate',
+		'siezi\phileTotalCache.command.setPage' => 'onSetPage'
 	];
 
 	public function __construct() {
-		Event::registerEvent('request_uri', $this);
-		Event::registerEvent('before_parse_content', $this);
-		Event::registerEvent('after_render_template', $this);
-		Event::registerEvent('siezi.phileTotalCache.set', $this);
+		foreach ($this->registeredEvents as $event => $method) {
+			Event::registerEvent($event, $this);
+		}
 	}
 
 	public function on($eventKey, $data = null) {
-		if ($eventKey === 'siezi.phileTotalCache.set') {
-			$this->onSet($data);
-			return;
-		}
-		$method = lcfirst(str_replace(' ', '' , ucwords(str_replace('_', ' ', $eventKey))));
+		$method = $this->registeredEvents[$eventKey];
 		$this->{$method}($data);
 	}
 
-	protected function onSet($data) {
-		$url = $data['url'];
-		$body = $data['body'];
-		unset($data['url'], $data['body']);
-		$this->setPage($url, $body, $data);
+	protected function onConfigLoaded() {
+		$this->settings += $this->defaults;
 	}
 
-	protected function requestUri($data) {
-		if (!ServiceLocator::hasService('Phile_Cache')) {
-			$this->enabled = false;
+	protected function onSetPage($data) {
+		$data += ['options' => []];
+		(new PageCache($data['url']))->set($data['body'], $data['options']);
+	}
+
+	protected function onRequestUri($data) {
+		$url = $data['uri'];
+		if ($this->isUrlExcluded($url)) {
 			return;
 		}
+		$this->enabled = true;
+		$this->pageCache = new PageCache($url);
+		$page = $this->pageCache->get();
+		if (!$page) {
+			return;
+		}
+		$this->sendPage($page);
+	}
 
-		$this->url = $current = $data['uri'];
-		$this->settings += $this->defaults;
+	protected function onBeforeParseContent($data) {
+		// don't fill cache storage with bogus requests
+		if ($this->enabled && $data['page']->getUrl() === '404') {
+			$this->enabled = false;
+		}
+	}
 
+	protected function onAfterRenderTemplate($data) {
+		$this->pageCache->set($data['output']);
+	}
 
+	protected function isUrlExcluded($current) {
 		foreach ($this->settings['excludeUrls'] as $url) {
 			if ($url === $current) {
-				$this->enabled = false;
+				return true;
 			}
 			if (substr($url, -1) === '*') {
 				$url = rtrim(rtrim($url, '*'), '/');
 				if (strpos($current, $url) === 0) {
-					$this->enabled = false;
+					return true;
 				}
 			}
 		}
+		return false;
+	}
 
-		if (!$this->enabled) {
-			return;
-		}
-
-		$this->cache = ServiceLocator::getService('Phile_Cache');
-
-		$pageHash = $this->getPageHash($data['uri']);
-		if (!$this->cache->has($pageHash)) {
-			return;
-		}
-		$page = $this->cache->get($pageHash);
-
+	protected function sendPage($page) {
 		$response = new Response();
 		if (isset($page['status'])) {
 			$response->setStatusCode($page['status']);
@@ -90,32 +98,6 @@ class Plugin extends AbstractPlugin implements EventObserverInterface {
 		}
 		$response->setBody($page['body'])->send();
 		die();
-	}
-
-	protected function beforeParseContent($data) {
-		if (!$this->enabled) {
-			return;
-		}
-		if ($data['page']->getUrl() === '404') {
-			$this->pageOptions['status'] = 404;
-		}
-	}
-
-	protected function afterRenderTemplate($data) {
-		$this->setPage($this->url, $data['output'], $this->pageOptions);
-	}
-
-	protected function getPageHash($url) {
-		return 'siezi.totalCache.' . md5($url);
-	}
-
-	protected function setPage($url, $body, array $options = []) {
-		if (!$this->enabled) {
-			return;
-		}
-		$hash = $this->getPageHash($url);
-		$page = ['body' => $body] + $options;
-		$this->cache->set($hash, $page);
 	}
 
 }
