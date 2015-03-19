@@ -11,34 +11,25 @@ class PageCache {
 	protected $cacheId;
 
 	public function __construct($cacheId) {
-		$this->cacheId = $cacheId;
 		if (ServiceLocator::hasService('Phile_Cache')) {
 			$this->cache = ServiceLocator::getService('Phile_Cache');
 		}
+		$this->cacheId = 'siezi\phileTotalCache.' . md5($cacheId);
 	}
 
 	public function get() {
-		if (!$this->cache) {
+		if (!$this->cache || !$this->cache->has($this->cacheId)) {
 			return;
 		}
-		$pageHash = $this->getPageHash($this->cacheId);
-		if (!$this->cache->has($pageHash)) {
-			return;
-		}
-		return $this->cache->get($pageHash);
+		return $this->cache->get($this->cacheId);
 	}
 
 	public function set($body, array $options = []) {
 		if (!$this->cache) {
 			return;
 		}
-		$hash = $this->getPageHash($this->cacheId);
 		$page = ['body' => $body] + $options;
-		$this->cache->set($hash, $page);
-	}
-
-	protected function getPageHash($url) {
-		return 'siezi\phileTotalCache.' . md5($url);
+		$this->cache->set($this->cacheId, $page);
 	}
 
 }
