@@ -8,10 +8,10 @@ class PageCache {
 
 	protected $cache;
 
-	protected $url;
+	protected $cacheId;
 
-	public function __construct($url) {
-		$this->url = $url;
+	public function __construct($cacheId) {
+		$this->cacheId = $cacheId;
 		if (ServiceLocator::hasService('Phile_Cache')) {
 			$this->cache = ServiceLocator::getService('Phile_Cache');
 		}
@@ -21,7 +21,7 @@ class PageCache {
 		if (!$this->cache) {
 			return;
 		}
-		$pageHash = $this->getPageHash($this->url);
+		$pageHash = $this->getPageHash($this->cacheId);
 		if (!$this->cache->has($pageHash)) {
 			return;
 		}
@@ -32,7 +32,7 @@ class PageCache {
 		if (!$this->cache) {
 			return;
 		}
-		$hash = $this->getPageHash($this->url);
+		$hash = $this->getPageHash($this->cacheId);
 		$page = ['body' => $body] + $options;
 		$this->cache->set($hash, $page);
 	}

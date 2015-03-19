@@ -47,12 +47,13 @@ class Plugin extends AbstractPlugin implements EventObserverInterface {
 	}
 
 	protected function onRequestUri($data) {
-		$url = $data['uri'];
-		if ($this->isUrlExcluded($url)) {
+		$pageId = $data['uri'];
+		if ($this->isPageExcluded($pageId)) {
 			return;
 		}
 		$this->enabled = true;
-		$this->pageCache = new PageCache($url);
+		$cacheId = $this->getCacheId($pageId);
+		$this->pageCache = new PageCache($cacheId);
 		$page = $this->pageCache->get();
 		if (!$page) {
 			return;
@@ -68,11 +69,22 @@ class Plugin extends AbstractPlugin implements EventObserverInterface {
 	}
 
 	protected function onAfterRenderTemplate($data) {
-		$this->pageCache->set($data['output']);
+		if ($this->enabled) {
+			$this->pageCache->set($data['output']);
+		}
 	}
 
-	protected function isUrlExcluded($current) {
-		foreach ($this->settings['excludeUrls'] as $url) {
+	protected function getCacheId($pageId) {
+		if (empty($this->settings['cacheRequestParams'])) {
+			$cacheId = $pageId;
+		} else {
+			$cacheId = $_SERVER['REQUEST_URI'];
+		}
+		return $cacheId;
+	}
+
+	protected function isPageExcluded($current) {
+		foreach ($this->settings['excludePages'] as $url) {
 			if ($url === $current) {
 				return true;
 			}
