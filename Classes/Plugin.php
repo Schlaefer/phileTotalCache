@@ -23,7 +23,7 @@ class Plugin extends AbstractPlugin implements EventObserverInterface
         'config_loaded' => 'onConfigLoaded',
         'request_uri' => 'onRequestUri',
         'before_parse_content' => 'onBeforeParseContent',
-        'after_render_template' => 'onAfterRenderTemplate',
+        'before_render_template' => 'onBeforeRenderTemplate',
         'siezi\phileTotalCache.command.setPage' => 'onSetPage'
     ];
 
@@ -36,7 +36,11 @@ class Plugin extends AbstractPlugin implements EventObserverInterface
 
     public function on($eventKey, $data = null)
     {
-        $method = $this->registeredEvents[$eventKey];
+        if ($eventKey === 'after_render_template') {
+            $method = 'onAfterRenderTemplate';
+        } else {
+            $method = $this->registeredEvents[$eventKey];
+        }
         $this->{$method}($data);
     }
 
@@ -73,6 +77,15 @@ class Plugin extends AbstractPlugin implements EventObserverInterface
         if ($this->enabled && $data['page']->getUrl() === '404') {
             $this->enabled = false;
         }
+    }
+
+    protected function onBeforeRenderTemplate()
+    {
+        /**
+         * Register this event as late as possible. So it hopefully runs after
+         * all normal plugins have modified the output to its final state.
+         */
+        Event::registerEvent('after_render_template', $this);
     }
 
     protected function onAfterRenderTemplate($data)
