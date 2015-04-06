@@ -2,6 +2,8 @@
 
 Caches as much as possible (completely avoid parser and template engine).
 
+![chart](chart.png)
+
 [Project Home](https://github.com/Schlaefer/phileTotalCache)
 
 ### 1.1 Installation (composer) ###
