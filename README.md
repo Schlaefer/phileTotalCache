@@ -4,6 +4,8 @@ Caches as much as possible (completely avoid parser and template engine).
 
 ![chart](chart.png)
 
+It's not that Phile is slow, but the markup-parser and template-engine take their toll. Also it's liberating not to have to worry about (your own) lazily written plugins.
+
 [Project Home](https://github.com/Schlaefer/phileTotalCache)
 
 ### 1.1 Installation (composer) ###
