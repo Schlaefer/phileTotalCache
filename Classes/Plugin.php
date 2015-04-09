@@ -4,10 +4,9 @@ namespace Phile\Plugin\Siezi\PhileTotalCache;
 
 use Phile\Core\Event;
 use Phile\Core\Response;
-use Phile\Gateway\EventObserverInterface;
 use Phile\Plugin\AbstractPlugin;
 
-class Plugin extends AbstractPlugin implements EventObserverInterface
+class Plugin extends AbstractPlugin
 {
 
     /**
@@ -17,37 +16,12 @@ class Plugin extends AbstractPlugin implements EventObserverInterface
 
     protected $enabled = false;
 
-    protected $defaults = ['excludeUrls' => []];
-
-    protected $registeredEvents = [
-        'config_loaded' => 'onConfigLoaded',
-        'request_uri' => 'onRequestUri',
+    protected $events = [
+        'after_resolve_page' => 'onAfterResolvePage',
         'before_parse_content' => 'onBeforeParseContent',
         'before_render_template' => 'onBeforeRenderTemplate',
         'siezi\phileTotalCache.command.setPage' => 'onSetPage'
     ];
-
-    public function __construct()
-    {
-        foreach ($this->registeredEvents as $event => $method) {
-            Event::registerEvent($event, $this);
-        }
-    }
-
-    public function on($eventKey, $data = null)
-    {
-        if ($eventKey === 'after_render_template') {
-            $method = 'onAfterRenderTemplate';
-        } else {
-            $method = $this->registeredEvents[$eventKey];
-        }
-        $this->{$method}($data);
-    }
-
-    protected function onConfigLoaded()
-    {
-        $this->settings += $this->defaults;
-    }
 
     protected function onSetPage($data)
     {
@@ -55,9 +29,9 @@ class Plugin extends AbstractPlugin implements EventObserverInterface
         (new PageCache($data['url']))->set($data['body'], $data['options']);
     }
 
-    protected function onRequestUri($data)
+    protected function onAfterResolvePage($data)
     {
-        $pageId = $data['uri'];
+        $pageId = $data['pageId'];
         if ($this->isPageExcluded($pageId)) {
             return;
         }
@@ -85,7 +59,9 @@ class Plugin extends AbstractPlugin implements EventObserverInterface
          * Register this event as late as possible. So it hopefully runs after
          * all normal plugins have modified the output to its final state.
          */
-        Event::registerEvent('after_render_template', $this);
+        $event = 'after_render_template';
+        $this->events[$event] = 'onAfterRenderTemplate';
+        Event::registerEvent($event, $this);
     }
 
     protected function onAfterRenderTemplate($data)
@@ -108,13 +84,13 @@ class Plugin extends AbstractPlugin implements EventObserverInterface
 
     protected function isPageExcluded($current)
     {
-        foreach ($this->settings['excludePages'] as $url) {
-            if ($url === $current) {
+        foreach ($this->settings['excludePages'] as $page) {
+            if ($page === $current) {
                 return true;
             }
-            if (substr($url, -1) === '*') {
-                $url = rtrim(rtrim($url, '*'), '/');
-                if (strpos($current, $url) === 0) {
+            if (substr($page, -1) === '*') {
+                $page = rtrim(rtrim($page, '*'), '/');
+                if (strpos($current, $page) === 0) {
                     return true;
                 }
             }

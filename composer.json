@@ -6,7 +6,6 @@
   "homepage": "https://github.com/Schlaefer/phileTotalCache",
   "keywords": ["phile", "cache"],
   "require": {
-    "phile-cms/phile": ">=1.4",
-    "phile-cms/plugin-installer-plugin": ">=1"
+    "phile-cms/phile": ">=1.5.0"
   }
 }
