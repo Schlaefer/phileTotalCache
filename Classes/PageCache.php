@@ -14,7 +14,7 @@ class PageCache {
 		if (ServiceLocator::hasService('Phile_Cache')) {
 			$this->cache = ServiceLocator::getService('Phile_Cache');
 		}
-		$this->cacheId = 'siezi\phileTotalCache.' . md5($cacheId);
+		$this->cacheId = 'siezi-phileTotalCache.' . md5($cacheId);
 	}
 
 	public function get() {
